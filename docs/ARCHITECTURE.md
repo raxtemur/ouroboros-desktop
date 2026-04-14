@@ -1,4 +1,4 @@
-# Ouroboros v4.30.3 — Architecture & Reference
+# Ouroboros v4.30.4 — Architecture & Reference
 
 This document describes every component, page, button, API endpoint, and data flow.
 It is the single source of truth for how the system works. Keep it updated.
@@ -283,7 +283,7 @@ The Dashboard tab has been removed. Its functionality is now distributed:
   Keys are displayed as masked values (e.g., `sk-or-v1...`), can be explicitly cleared, and are only overwritten on save if the user enters a new value (not containing `...`).
 - **Claude Runtime Status**: when Anthropic is configured, the Anthropic card shows app-managed Claude runtime status with `Repair Runtime` action.
   The Claude runtime (SDK + bundled CLI) powers delegated code editing and advisory review and is managed automatically by the app.
-- **Providers tab**: also contains `Legacy OpenAI Base URL` (backward-compatibility escape hatch for older installs) and `Network Gate` (LAN Access toggle + optional non-localhost password) at the bottom.
+- **Providers tab**: also contains `Legacy OpenAI Base URL` (backward-compatibility escape hatch for older installs) and `Network Gate` (LAN Access toggle with dynamic LAN IP hint + optional non-localhost password) at the bottom. When the LAN Access toggle is enabled, a hint below the checkbox fetches `/api/network-info` and displays clickable `http://<LAN-IP>:<port>` links so the user knows exactly which address to open on other devices.
 - **Models tab**: Main, Code, Light, Fallback model routing. Each card has a `Local` toggle to route through the GGUF server configured in Advanced. `Claude Code Model` field selects the Anthropic model for `claude_code_edit` / `advisory_pre_review`.
 - **Model catalog**: optional `Refresh Model Catalog` action calls `/api/model-catalog`. Failures are non-fatal and surfaced as inline warnings.
 - **Model pickers**: searchable provider-aware pickers replace legacy raw dropdowns for remote models.
@@ -401,6 +401,7 @@ authentication. If the password is blank, non-loopback access stays open by desi
 | POST | `/api/files/delete` | Delete a file/directory (root delete is rejected) |
 | POST | `/api/files/transfer` | Copy or move files/directories within the Files root |
 | POST | `/api/files/upload` | Multipart upload into current Files directory |
+| GET | `/api/network-info` | LAN IP addresses and server port for the current machine |
 | GET | `/api/settings` | Current settings with masked API keys |
 | POST | `/api/settings` | Update settings (partial update, only provided keys) |
 | GET | `/api/claude-code/status` | App-managed Claude runtime status (SDK version, CLI path/version, legacy detection, API key readiness) |

@@ -221,6 +221,20 @@
     line-height: 1.55;
 }
 
+.lan-hint {
+    color: var(--text-secondary);
+}
+
+.lan-hint-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.lan-hint-link:hover {
+    color: var(--accent-hover, #e85d6f);
+}
+
 .settings-inline-status {
     color: var(--text-secondary);
     font-size: 13px;

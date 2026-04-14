@@ -146,6 +146,30 @@ export function initSettings({ state }) {
         }, 3000);
     }
 
+    // --- LAN access hint ---------------------------------------------------
+    async function updateLanHint() {
+        const hint = byId('lan-access-hint');
+        const checked = byId('s-lan-access')?.checked;
+        if (!hint) return;
+        if (!checked) { hint.style.display = 'none'; return; }
+        hint.style.display = '';
+        hint.textContent = 'Detecting network address\u2026';
+        try {
+            const resp = await fetch('/api/network-info', { cache: 'no-store' });
+            const data = await resp.json();
+            if (data.ips && data.ips.length > 0) {
+                const port = data.port || location.port || 8765;
+                const urls = data.ips.map(ip => `http://${ip}:${port}`);
+                hint.innerHTML = '\uD83D\uDCE1 Access from other devices: ' +
+                    urls.map(u => `<a href="${u}" target="_blank" class="lan-hint-link">${u}</a>`).join(', ');
+            } else {
+                hint.textContent = '\u26A0\uFE0F Could not detect a LAN IP address. Make sure you are connected to a network.';
+            }
+        } catch {
+            hint.textContent = '\u26A0\uFE0F Could not detect network address.';
+        }
+    }
+
     function applySettings(s) {
         applyInputValue('s-openrouter', s.OPENROUTER_API_KEY);
         applyInputValue('s-openai', s.OPENAI_API_KEY);
@@ -192,6 +216,7 @@ export function initSettings({ state }) {
         applyCheckboxValue('s-local-fallback', s.USE_LOCAL_FALLBACK);
         resetSecretClearFlags(page);
         syncEffortSegments(page);
+        updateLanHint();
     }
 
     async function loadSettings() {
@@ -268,6 +293,8 @@ export function initSettings({ state }) {
             refreshClaudeCodeStatus();
         }
     });
+
+    byId('s-lan-access')?.addEventListener('change', updateLanHint);
 
     page.addEventListener('click', (event) => {
         if (event.target.closest('.secret-clear[data-target="s-anthropic"]')) {

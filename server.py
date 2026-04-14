@@ -796,6 +796,36 @@ async def api_state(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+async def api_network_info(request: Request) -> JSONResponse:
+    """Return LAN IP addresses for the current machine."""
+    import socket as _sock
+    ips: List[str] = []
+    # Primary method: connect to a public IP to discover the preferred LAN address
+    try:
+        s = _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM)
+        s.settimeout(0.5)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        if ip and not ip.startswith("127."):
+            ips.append(ip)
+    except Exception:
+        pass
+    # Fallback: enumerate via getaddrinfo
+    if not ips:
+        try:
+            hostname = _sock.gethostname()
+            for info in _sock.getaddrinfo(hostname, None, _sock.AF_INET):
+                addr = info[4][0]
+                if addr and not addr.startswith("127."):
+                    if addr not in ips:
+                        ips.append(addr)
+        except Exception:
+            pass
+    port = int(os.environ.get("OUROBOROS_SERVER_PORT", DEFAULT_PORT))
+    return JSONResponse({"ips": ips, "port": port})
+
+
 async def api_settings_get(request: Request) -> JSONResponse:
     settings, _, _ = apply_runtime_provider_defaults(load_settings())
     safe = {k: v for k, v in settings.items()}
@@ -1097,6 +1127,7 @@ routes = [
     Route("/api/onboarding", endpoint=api_onboarding),
     Route("/api/claude-code/status", endpoint=api_claude_code_status),
     Route("/api/claude-code/install", endpoint=api_claude_code_install, methods=["POST"]),
+    Route("/api/network-info", endpoint=api_network_info),
     Route("/api/settings", endpoint=api_settings_get, methods=["GET"]),
     Route("/api/settings", endpoint=api_settings_post, methods=["POST"]),
     Route("/api/model-catalog", endpoint=api_model_catalog),
