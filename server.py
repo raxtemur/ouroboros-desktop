@@ -172,6 +172,7 @@ _RESTART_REQUIRED_KEYS = frozenset({
     "OPENAI_BASE_URL",
     "OPENAI_COMPATIBLE_BASE_URL",
     "CLOUDRU_FOUNDATION_MODELS_BASE_URL",
+    "OUROBOROS_SERVER_HOST",
 })
 
 
@@ -1209,7 +1210,26 @@ def _emergency_process_cleanup() -> None:
 # Main
 # ---------------------------------------------------------------------------
 def main() -> int:
-    args = parse_server_args(DEFAULT_HOST, DEFAULT_PORT)
+    # Settings-based host override: settings.json may specify OUROBOROS_SERVER_HOST
+    # that wasn't set as an env var. Load it early so the bind address is correct.
+    effective_host = DEFAULT_HOST
+    effective_port = DEFAULT_PORT
+    try:
+        from ouroboros.config import load_settings as _load_settings_early
+        _early = _load_settings_early()
+        _host_from_settings = str(_early.get("OUROBOROS_SERVER_HOST", "") or "").strip()
+        if _host_from_settings and not os.environ.get("OUROBOROS_SERVER_HOST"):
+            effective_host = _host_from_settings
+        _port_from_settings = _early.get("OUROBOROS_SERVER_PORT")
+        if _port_from_settings and not os.environ.get("OUROBOROS_SERVER_PORT"):
+            try:
+                effective_port = int(_port_from_settings)
+            except (TypeError, ValueError):
+                pass
+    except Exception:
+        pass
+
+    args = parse_server_args(effective_host, effective_port)
     auth_warning = get_network_auth_startup_warning(args.host)
     if auth_warning:
         log.warning(auth_warning)

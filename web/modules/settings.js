@@ -156,6 +156,7 @@ export function initSettings({ state }) {
         applyInputValue('s-cloudru-base-url', s.CLOUDRU_FOUNDATION_MODELS_BASE_URL);
         applyInputValue('s-anthropic', s.ANTHROPIC_API_KEY);
         applyInputValue('s-network-password', s.OUROBOROS_NETWORK_PASSWORD);
+        byId('s-lan-access').checked = (s.OUROBOROS_SERVER_HOST === '0.0.0.0');
         applyInputValue('s-telegram-token', s.TELEGRAM_BOT_TOKEN);
         applyInputValue('s-telegram-chat-id', s.TELEGRAM_CHAT_ID);
 
@@ -241,6 +242,7 @@ export function initSettings({ state }) {
             OPENAI_COMPATIBLE_BASE_URL: byId('s-openai-compatible-base-url').value.trim(),
             CLOUDRU_FOUNDATION_MODELS_BASE_URL: byId('s-cloudru-base-url').value.trim(),
             TELEGRAM_CHAT_ID: byId('s-telegram-chat-id').value.trim(),
+            OUROBOROS_SERVER_HOST: byId('s-lan-access').checked ? '0.0.0.0' : '127.0.0.1',
         };
 
         collectSecretValue('s-openrouter', body);
