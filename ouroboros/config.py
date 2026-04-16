@@ -94,6 +94,7 @@ SETTINGS_DEFAULTS = {
     "USE_LOCAL_LIGHT": False,
     "USE_LOCAL_FALLBACK": False,
     "OUROBOROS_FILE_BROWSER_DEFAULT": "",
+    "OUROBOROS_SERVER_HOST": "127.0.0.1",
 }
 
 _VALID_EFFORTS = ("none", "low", "medium", "high")
@@ -316,6 +317,7 @@ def apply_settings_to_env(settings: dict) -> None:
         "LOCAL_MODEL_CHAT_FORMAT",
         "USE_LOCAL_MAIN", "USE_LOCAL_CODE", "USE_LOCAL_LIGHT", "USE_LOCAL_FALLBACK",
         "OUROBOROS_FILE_BROWSER_DEFAULT",
+        "OUROBOROS_SERVER_HOST",
     ]
     for k in env_keys:
         val = settings.get(k)

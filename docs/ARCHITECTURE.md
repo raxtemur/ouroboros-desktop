@@ -1,4 +1,4 @@
-# Ouroboros v4.34.0 — Architecture & Reference
+# Ouroboros v4.34.1 — Architecture & Reference
 
 This document describes every component, page, button, API endpoint, and data flow.
 It is the single source of truth for how the system works. Keep it updated.
@@ -284,7 +284,7 @@ The Dashboard tab has been removed. Its functionality is now distributed:
 - **API Keys**: OpenRouter, OpenAI, OpenAI-compatible, Cloud.ru, Anthropic, Telegram Bot Token, GitHub Token, and Network Password.
   Keys are displayed as masked values (e.g., `sk-or-v1...`), can be explicitly cleared, and are only overwritten on save if the user enters a new value (not containing `...`).
 - **Claude Runtime Status**: the Anthropic card shows app-managed Claude runtime status with a `Repair Runtime` action. The card is visible when the user has configured `ANTHROPIC_API_KEY` **or** when the last `/api/claude-code/status` poll stored a non-empty `error` on the runtime card state (`claudeRuntimeHasError` in `web/modules/settings.js::applyClaudeCodeStatus`). Two distinct paths set that `error`: (a) backend `ouroboros/platform_layer.py::resolve_claude_runtime` marks the SDK below the `_CLAUDE_SDK_MIN_VERSION` baseline (the only backend-originated path today — other not-ready conditions such as a missing bundled CLI currently fall through to `status_label() == "no_api_key"` until a key is configured); (b) the browser-side `refreshClaudeCodeStatus` `catch` block synthesizes an error payload for any `/api/claude-code/status` transport failure, non-OK HTTP response, or JSON parse error, so loss of connectivity to the backend also surfaces the card before a key is configured. The Claude runtime (SDK + bundled CLI) powers delegated code editing and advisory review and is managed automatically by the app.
-- **Providers tab**: also contains `Legacy OpenAI Base URL` (backward-compatibility escape hatch for older installs) and `Network Gate` (optional non-localhost password) at the bottom.
+- **Providers tab**: also contains `Legacy OpenAI Base URL` (backward-compatibility escape hatch for older installs) and `Network Gate` ("Allow LAN Access" checkbox + optional non-localhost password) at the bottom. The LAN Access checkbox sets `OUROBOROS_SERVER_HOST` to `0.0.0.0` (requires restart); when enabled, a hint shows the device's LAN IP and port via `/api/network-info`.
 - **Models tab**: Main, Code, Light, Fallback model routing. Each card has a `Local` toggle to route through the GGUF server configured in Advanced. `Claude Code Model` field selects the Anthropic model for `claude_code_edit` / `advisory_pre_review`.
 - **Model catalog**: optional `Refresh Model Catalog` action calls `/api/model-catalog`. Failures are non-fatal and surfaced as inline warnings.
 - **Model pickers**: searchable provider-aware pickers replace legacy raw dropdowns for remote models.
@@ -421,6 +421,7 @@ authentication. If the password is blank, non-loopback access stays open by desi
 | POST | `/api/chat/upload` | Upload a file attachment; saved to `data/uploads/` with UUID-prefixed unique name; returns `{ok, filename, display_name, path, size, mime}` |
 | DELETE | `/api/chat/upload` | Delete a previously uploaded chat attachment by filename |
 | POST | `/api/local-model/test` | Local model sanity test (chat + tool calling) |
+| GET | `/api/network-info` | `{ips: [...], port}` — LAN IP addresses and server port for the Settings hint |
 | POST | `/api/local-model/install-runtime` | Install llama-cpp-python into the app-managed interpreter; returns `{status: "installing"}` immediately. Poll `/api/local-model/status` for `runtime_status` field (`installing` → `install_ok` / `install_error`). On macOS, sets `CMAKE_ARGS="-DGGML_METAL=on"` for Metal acceleration. |
 | GET/POST | `/auth/login` | Password gate entrypoint for non-localhost browser/API access |
 | GET/POST | `/auth/logout` | Clear auth cookie/session |
@@ -1287,6 +1288,7 @@ Settings file: `~/Ouroboros/data/settings.json`. File-locked for concurrent acce
 | GITHUB_TOKEN | "" | Optional. GitHub PAT for remote sync |
 | GITHUB_REPO | "" | Optional. GitHub repo (owner/name) for sync |
 | OUROBOROS_FILE_BROWSER_DEFAULT | "" | Explicit Files tab root. Required for Docker/non-localhost Files access |
+| OUROBOROS_SERVER_HOST | 127.0.0.1 | Server bind host. Set to `0.0.0.0` via the "Allow LAN Access" checkbox to accept connections from other devices on the local network. Requires restart. |
 
 ---
 
