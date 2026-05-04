@@ -144,6 +144,8 @@ loadVersion();
 
 // Visual viewport height — keeps layout above soft keyboard on iOS/Android.
 // Updates a <style> tag (not element.style) to set --vvh without inline styles.
+// Also toggles ``keyboard-open`` on <body> so CSS can hide the bottom nav-rail
+// when the soft keyboard is up (prevents a blank gap between input and nav bar).
 (function () {
     const vvhStyle = document.createElement('style');
     vvhStyle.id = 'runtime-vvh';
@@ -151,6 +153,13 @@ loadVersion();
     const updateVvh = () => {
         const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         vvhStyle.textContent = ':root{--vvh:' + h + 'px}';
+        // Detect soft keyboard: viewport height is >30% smaller than the full
+        // window height (layout viewport). Only applies on narrow screens where
+        // the nav-rail is a horizontal bottom bar; desktop is unaffected.
+        if (window.innerWidth <= 640) {
+            const keyboardVisible = (window.innerHeight - h) > window.innerHeight * 0.3;
+            document.body.classList.toggle('keyboard-open', keyboardVisible);
+        }
     };
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', updateVvh);
