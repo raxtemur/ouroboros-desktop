@@ -4291,12 +4291,14 @@ body {
     }
 }
 
-/* Soft-keyboard open on mobile — hide the bottom nav-rail so there is no blank
-   gap between the chat input dock and the keyboard.
-   When the keyboard is up, ``body.keyboard-open`` is toggled by app.js (via
-   visualViewport resize). The nav-rail disappears and #content loses its
-   bottom padding reservation, letting --vvh (= visualViewport.height, already
-   excluding the keyboard) fill the full remaining height cleanly. */
+/* Soft-keyboard open on mobile — hide the bottom nav-rail and pin the
+   composer to the visual viewport so no blank band remains above the
+   keyboard. ``body.keyboard-open`` is toggled by app.js (via visualViewport
+   resize). The nav-rail disappears, #content loses its bottom padding
+   reservation, and #chat-input-area switches from page-absolute to
+   viewport-fixed positioning. Some mobile browsers keep the page layout box
+   taller than the keyboard-shrunken visual viewport; fixing the composer to
+   the viewport bottom is what closes the remaining gap. */
 @media (max-width: 640px) {
     body.keyboard-open #nav-rail {
         display: none;
@@ -4304,5 +4306,15 @@ body {
 
     body.keyboard-open #content {
         padding-bottom: 0;
+    }
+
+    body.keyboard-open #chat-input-area {
+        position: fixed;
+        bottom: 0;
+        padding-bottom: 16px;
+    }
+
+    body.keyboard-open #chat-messages {
+        padding-bottom: var(--chat-input-reserve, 108px);
     }
 }

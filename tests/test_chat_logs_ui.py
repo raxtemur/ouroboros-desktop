@@ -1157,6 +1157,42 @@ def test_mobile_chat_uses_flex_composer_layout_and_no_interactive_widget():
     assert "min-height: 0" in chat_messages
 
 
+def test_mobile_keyboard_open_pins_composer_to_visual_viewport():
+    """app.js toggles body.keyboard-open; style.css hides #nav-rail and fixes
+    the composer to the visual viewport bottom so no blank keyboard gap remains."""
+    js = _read("web/app.js")
+    css = _read("web/style.css")
+
+    # JS: keyboard detection using visualViewport vs innerHeight
+    assert "keyboard-open" in js, "app.js must toggle 'keyboard-open' class"
+    assert "window.innerHeight" in js
+    assert "visualViewport" in js
+
+    # CSS: hide nav-rail when keyboard is open on mobile
+    assert "body.keyboard-open #nav-rail" in css
+    assert "body.keyboard-open #content" in css
+    assert "body.keyboard-open #chat-input-area" in css
+    assert "body.keyboard-open #chat-messages" in css
+    nav_block = re.search(
+        r"body\.keyboard-open\s+#nav-rail\s*\{([^}]+)\}", css, re.S
+    )
+    assert nav_block and "display: none" in nav_block.group(1)
+    content_block = re.search(
+        r"body\.keyboard-open\s+#content\s*\{([^}]+)\}", css, re.S
+    )
+    assert content_block and "padding-bottom: 0" in content_block.group(1)
+    composer_block = re.search(
+        r"body\.keyboard-open\s+#chat-input-area\s*\{([^}]+)\}", css, re.S
+    )
+    assert composer_block and "position: fixed" in composer_block.group(1)
+    assert "bottom: 0" in composer_block.group(1)
+    assert "padding-bottom: 16px" in composer_block.group(1)
+    messages_block = re.search(
+        r"body\.keyboard-open\s+#chat-messages\s*\{([^}]+)\}", css, re.S
+    )
+    assert messages_block and "env(safe-area-inset-bottom" not in messages_block.group(1)
+
+
 def test_budget_pill_navigates_to_settings_costs():
     source = _read("web/modules/chat.js")
     css = _read("web/style.css")
