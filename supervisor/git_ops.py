@@ -760,27 +760,39 @@ def checkout_and_reset(branch: str, reason: str = "unspecified",
             capture_output=True,
         ).returncode == 0
 
-    if remote_ref_exists:
-        if update_intent_target:
-            _run_git_resilient(["git", "reset", "--hard", "HEAD"], cwd=str(REPO_DIR), check=True)
-            _run_git_resilient(["git", "clean", "-fd"], cwd=str(REPO_DIR), check=True)
+    # Determine if this is an explicit update (UI "Update Now" or bootstrap pin)
+    # vs a regular restart. Regular restarts must NOT force-reset to remote —
+    # they only ensure the branch is checked out and the worktree is clean.
+    is_explicit_update = bool(update_intent_target or pin_bundle_sha)
+
+    if is_explicit_update and remote_ref_exists:
+        # Explicit update: force-align local branch to the target ref
+        _run_git_resilient(["git", "reset", "--hard", "HEAD"], cwd=str(REPO_DIR), check=True)
+        _run_git_resilient(["git", "clean", "-fd"], cwd=str(REPO_DIR), check=True)
         _run_git_resilient(["git", "checkout", "-B", branch, target_ref], cwd=str(REPO_DIR), check=True)
         if update_intent_target:
             _run_git_resilient(["git", "reset", "--hard", target_ref], cwd=str(REPO_DIR), check=True)
         _run_git_resilient(["git", "clean", "-fd"], cwd=str(REPO_DIR), check=True)
     else:
+        # Regular restart: preserve committed work, only clean worktree
         rc_local = subprocess.run(
             ["git", "rev-parse", "--verify", branch],
             cwd=str(REPO_DIR), capture_output=True,
         ).returncode
 
         if rc_local != 0:
-            _run_git_resilient(["git", "reset", "--hard", "HEAD"], cwd=str(REPO_DIR), check=True)
-            _run_git_resilient(["git", "clean", "-fd"], cwd=str(REPO_DIR), check=True)
-            _run_git_resilient(["git", "checkout", "-b", branch], cwd=str(REPO_DIR), check=False)
+            # Branch does not exist locally — create it from remote or HEAD
+            if remote_ref_exists:
+                _run_git_resilient(["git", "checkout", "-B", branch, target_ref], cwd=str(REPO_DIR), check=True)
+            else:
+                _run_git_resilient(["git", "checkout", "-b", branch], cwd=str(REPO_DIR), check=False)
         else:
+            # Branch exists — just switch to it without moving the ref
             _run_git_resilient(["git", "checkout", branch], cwd=str(REPO_DIR), check=True)
-            _run_git_resilient(["git", "reset", "--hard", "HEAD"], cwd=str(REPO_DIR), check=True)
+
+        # Clean uncommitted changes (dirty tracked files + untracked), keep commits
+        _run_git_resilient(["git", "reset", "--hard", "HEAD"], cwd=str(REPO_DIR), check=True)
+        _run_git_resilient(["git", "clean", "-fd"], cwd=str(REPO_DIR), check=True)
 
     # Clean __pycache__ to prevent stale bytecode (git checkout may not update mtime)
     for p in REPO_DIR.rglob("__pycache__"):

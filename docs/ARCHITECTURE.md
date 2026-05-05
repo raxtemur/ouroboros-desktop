@@ -1,4 +1,4 @@
-# Ouroboros v5.7.1 — Architecture & Reference
+# Ouroboros v5.7.2 — Architecture & Reference
 
 This document describes every component, page, button, API endpoint, and data flow.
 It is the single source of truth for how the system works. Keep it updated.
@@ -217,12 +217,13 @@ launcher.py main()
   │                               repo.bundle + validates repo_bundle_manifest.json;
   │                               subsequent runs verify the managed clone's bootstrap pin
   │                               (source_sha + release_tag + bundle_sha256) and ensure the
-  │                               managed remote is configured. The actual
-  │                               fetch + reset to managed/<branch> lives in
-  │                               supervisor/git_ops.checkout_and_reset(), called by
-  │                               server.py::_bootstrap_supervisor_repo() on restart,
-  │                               not in ensure_managed_repo itself — no per-launch
-  │                               file overwrite from the packaged workspace.
+  │                               managed remote is configured. On restart,
+  │                               supervisor/git_ops.checkout_and_reset() fetches
+  │                               managed remote and checks out the dev branch;
+  │                               regular restarts preserve local commits (reset
+  │                               --hard HEAD + clean -fd only); explicit update-
+  │                               intent flows (UI "Update Now", first bootstrap
+  │                               pin) force-reset to managed/<branch>.
   ├── _run_first_run_wizard()   → Show shared setup wizard if no runnable config
   │                               (access entry → models → review mode → budget → summary)
   │                               Saves to ~/Ouroboros/data/settings.json
@@ -277,7 +278,7 @@ flowchart TD
     S --> B["_bootstrap_supervisor_repo()"]
     B --> SR["safe_restart(rescue_and_reset)"]
     SR --> RS["_create_rescue_snapshot() → rescue branch<br/>(only if dirty tree)"]
-    SR --> RB[reset to managed/<branch>]
+    SR --> RB["checkout branch + reset --hard HEAD + clean<br/>(commits preserved; update-intent only resets to remote)"]
     RB --> SW["spawn_workers() → worker_main"]
     SW --> MA["make_agent() → OuroborosAgent.__init__"]
     MA --> LB["_log_worker_boot_once()"]
@@ -1654,7 +1655,7 @@ Settings file: `~/Ouroboros/data/settings.json`. File-locked for concurrent acce
 - **ouroboros-stable** — promoted stable version. Updated via "Promote to Stable" button.
 - **main** — protected branch. Agent never touches it.
 
-`safe_restart()` does `git checkout -f ouroboros` + `git reset --hard` on the repo.
+`safe_restart()` calls `checkout_and_reset("ouroboros")` which on regular restarts does `git checkout ouroboros` + `git reset --hard HEAD` + `git clean -fd` (preserving committed work). Only explicit update-intent flows force-align to the managed remote ref.
 Uncommitted changes are rescued to `~/Ouroboros/data/archive/rescue/` before reset.
 
 ---

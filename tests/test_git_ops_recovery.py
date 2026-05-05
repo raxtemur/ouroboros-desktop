@@ -73,6 +73,8 @@ def test_checkout_and_reset_removes_stale_index_lock(monkeypatch, tmp_path):
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "reset"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "clean"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "HEAD":
             return subprocess.CompletedProcess(cmd, 0, stdout="abc123\n", stderr="")
         raise AssertionError(cmd)
@@ -116,6 +118,8 @@ def test_checkout_and_reset_continues_when_fetch_fails(monkeypatch, tmp_path):
         if cmd[:2] == ["git", "checkout"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "reset"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "clean"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "HEAD":
             return subprocess.CompletedProcess(cmd, 0, stdout="def456\n", stderr="")
@@ -233,7 +237,12 @@ def test_checkout_and_reset_blocks_when_untracked_rescue_is_truncated(monkeypatc
     assert events[-1]["incomplete_detail"] == "untracked rescue copy was truncated"
 
 
-def test_checkout_and_reset_prefers_managed_remote_ref(monkeypatch, tmp_path):
+def test_checkout_and_reset_regular_restart_preserves_local_commits(monkeypatch, tmp_path):
+    """Regular restart (no update intent) must NOT force-reset to remote.
+
+    It should checkout the existing branch and reset --hard HEAD to clean
+    uncommitted changes, but leave committed work untouched.
+    """
     git_dir = tmp_path / ".git"
     git_dir.mkdir()
 
@@ -266,13 +275,18 @@ def test_checkout_and_reset_prefers_managed_remote_ref(monkeypatch, tmp_path):
         calls.append(cmd)
         if cmd == ["git", "rev-parse", "--verify", "managed/ouroboros"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="remote-sha\n", stderr="")
-        if cmd[:4] == ["git", "checkout", "-B", "ouroboros"]:
+        if cmd == ["git", "rev-parse", "--verify", "ouroboros"]:
+            # Branch exists locally
+            return subprocess.CompletedProcess(cmd, 0, stdout="local-sha\n", stderr="")
+        if cmd == ["git", "checkout", "ouroboros"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd == ["git", "reset", "--hard", "HEAD"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "clean"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "HEAD":
-            return subprocess.CompletedProcess(cmd, 0, stdout="fedcba\n", stderr="")
-        raise AssertionError(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout="local-sha\n", stderr="")
+        raise AssertionError(f"Unexpected git call: {cmd}")
 
     monkeypatch.setattr(git_ops.subprocess, "run", fake_run)
 
@@ -280,9 +294,83 @@ def test_checkout_and_reset_prefers_managed_remote_ref(monkeypatch, tmp_path):
 
     assert ok
     assert message == "ok"
-    assert ["git", "checkout", "-B", "ouroboros", "managed/ouroboros"] in calls
+    # Must NOT force-reset to remote on regular restart
+    assert ["git", "checkout", "-B", "ouroboros", "managed/ouroboros"] not in calls
+    # Must checkout the branch normally and reset to HEAD (preserving commits)
+    assert ["git", "checkout", "ouroboros"] in calls
+    assert ["git", "reset", "--hard", "HEAD"] in calls
     assert saved_state["current_branch"] == "ouroboros"
-    assert saved_state["current_sha"] == "fedcba"
+    assert saved_state["current_sha"] == "local-sha"
+
+
+def test_checkout_and_reset_explicit_update_resets_to_remote(monkeypatch, tmp_path):
+    """Explicit update intent SHOULD force-reset to the target ref."""
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+
+    # Write a fake update intent file
+    intent_file = git_dir / "ouroboros-update-intent.json"
+    import json
+    intent_file.write_text(json.dumps({
+        "branch": "ouroboros",
+        "target_sha": "update-target-sha",
+    }))
+
+    monkeypatch.setattr(git_ops, "REPO_DIR", tmp_path)
+    monkeypatch.setattr(git_ops, "_has_remote", lambda name=None: name in (None, "managed"))
+    monkeypatch.setattr(
+        git_ops,
+        "_read_managed_repo_meta",
+        lambda: {
+            "managed_remote_name": "managed",
+            "managed_remote_branch": "ouroboros",
+            "managed_remote_stable_branch": "ouroboros-stable",
+        },
+    )
+    monkeypatch.setattr(
+        git_ops,
+        "_read_update_intent",
+        lambda: {"branch": "ouroboros", "target_sha": "update-target-sha"},
+    )
+    monkeypatch.setattr(git_ops, "load_state", lambda: {})
+
+    saved_state = {}
+    monkeypatch.setattr(git_ops, "save_state", lambda state: saved_state.update(state))
+
+    def fake_git_capture(cmd):
+        if cmd == ["git", "rev-parse", "--verify", "update-target-sha"]:
+            return 0, "update-target-sha", ""
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(git_ops, "git_capture", fake_git_capture)
+
+    calls = []
+
+    def fake_run(cmd, cwd=None, capture_output=False, text=False, check=False):
+        calls.append(cmd)
+        if cmd == ["git", "rev-parse", "--verify", "update-target-sha"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="update-target-sha\n", stderr="")
+        if cmd[:4] == ["git", "checkout", "-B", "ouroboros"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd == ["git", "reset", "--hard", "HEAD"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd == ["git", "reset", "--hard", "update-target-sha"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "clean"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "HEAD":
+            return subprocess.CompletedProcess(cmd, 0, stdout="update-target-sha\n", stderr="")
+        raise AssertionError(f"Unexpected git call: {cmd}")
+
+    monkeypatch.setattr(git_ops.subprocess, "run", fake_run)
+
+    ok, message = git_ops.checkout_and_reset("ouroboros", reason="ui_update_apply", unsynced_policy="ignore")
+
+    assert ok
+    assert message == "ok"
+    # Explicit update SHOULD force-reset to the target
+    assert ["git", "checkout", "-B", "ouroboros", "update-target-sha"] in calls
+    assert saved_state["current_sha"] == "update-target-sha"
 
 
 def test_configure_remote_adds_origin_even_when_managed_remote_exists(monkeypatch):
@@ -372,6 +460,8 @@ def test_checkout_and_reset_keeps_bundled_sha_on_first_managed_bootstrap(monkeyp
         if cmd[:2] == ["git", "checkout"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "reset"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "clean"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "HEAD":
             return subprocess.CompletedProcess(cmd, 0, stdout="bundle123\n", stderr="")
