@@ -153,7 +153,8 @@ loadVersion();
     const updateVvh = () => {
         const viewport = window.visualViewport;
         const h = viewport ? viewport.height : window.innerHeight;
-        vvhStyle.textContent = ':root{--vvh:' + h + 'px}';
+        const offset = viewport ? viewport.offsetTop : 0;
+        vvhStyle.textContent = ':root{--vvh:' + h + 'px;--vvh-offset:' + offset + 'px}';
 
         if (window.innerWidth <= 640) {
             const layoutHeight = window.innerHeight || h;

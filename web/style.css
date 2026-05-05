@@ -4297,8 +4297,7 @@ body {
         display: none;
     }
 
-    body.keyboard-open #content,
-    body.keyboard-open #page-chat {
+    body.keyboard-open #content {
         height: var(--vvh);
         max-height: var(--vvh);
         padding-bottom: 0;
@@ -4307,30 +4306,38 @@ body {
 
     body.keyboard-open #page-chat {
         position: fixed;
-        inset: 0;
+        top: var(--vvh-offset, 0px);
+        left: 0;
+        right: 0;
+        height: var(--vvh);
+        max-height: var(--vvh);
+        display: flex;
+        flex-direction: column;
         z-index: 20;
+        overflow: hidden;
     }
 
     body.keyboard-open .chat-page-header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
+        flex-shrink: 0;
+        position: relative;
     }
 
     body.keyboard-open #chat-messages {
-        position: fixed;
-        inset: 0;
-        height: var(--vvh);
-        max-height: var(--vvh);
-        padding-top: 80px;
-        padding-bottom: var(--chat-input-reserve, 108px);
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        height: auto;
+        max-height: none;
+        padding-top: 0;
+        padding-bottom: 0;
         overflow-y: auto;
     }
 
     body.keyboard-open #chat-input-area {
-        position: fixed;
-        bottom: 0;
-        padding-bottom: 16px;
+        flex-shrink: 0;
+        position: relative;
+        bottom: auto;
+        padding-top: 8px;
+        padding-bottom: 8px;
     }
 }

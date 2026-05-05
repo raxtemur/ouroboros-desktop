@@ -1176,6 +1176,7 @@ def test_mobile_keyboard_open_pins_composer_to_visual_viewport():
     assert "keyboard-open" in js
     assert "visualViewport" in js
     assert "window.innerHeight" in js
+    assert "--vvh-offset" in js
 
     # CSS must contain all keyboard-open selectors
     assert "body.keyboard-open #nav-rail" in css
@@ -1191,34 +1192,33 @@ def test_mobile_keyboard_open_pins_composer_to_visual_viewport():
     ).group("body")
     assert "display: none" in nav_block
 
-    # Page-chat gets position fixed
+    # Page-chat gets position fixed with flex-column layout
     page_chat_block = re.search(
         r"body\.keyboard-open\s+#page-chat\s*\{(?P<body>[^}]+)\}",
-        css[css.index("body.keyboard-open #page-chat") + 30:],  # skip first combined rule
+        css,
         re.S,
     ).group("body")
     assert "position: fixed" in page_chat_block
-    assert "inset: 0" in page_chat_block
+    assert "flex-direction: column" in page_chat_block
+    assert "var(--vvh-offset" in page_chat_block
 
-    # Header stays fixed at top
+    # Header uses flex-shrink (not fixed positioning)
     header_block = re.search(
         r"body\.keyboard-open\s+\.chat-page-header\s*\{(?P<body>[^}]+)\}", css, re.S
     ).group("body")
-    assert "position: fixed" in header_block
-    assert "top: 0" in header_block
+    assert "flex-shrink: 0" in header_block
 
-    # Messages constrained to visual viewport
+    # Messages fill remaining space via flex
     messages_block = re.search(
         r"body\.keyboard-open\s+#chat-messages\s*\{(?P<body>[^}]+)\}", css, re.S
     ).group("body")
-    assert "position: fixed" in messages_block
-    assert "height: var(--vvh)" in messages_block
+    assert "flex: 1" in messages_block
+    assert "min-height: 0" in messages_block
     assert "overflow-y: auto" in messages_block
 
-    # Composer pinned to bottom
+    # Composer uses flex-shrink (not fixed bottom)
     input_block = re.search(
         r"body\.keyboard-open\s+#chat-input-area\s*\{(?P<body>[^}]+)\}", css, re.S
     ).group("body")
-    assert "position: fixed" in input_block
-    assert "bottom: 0" in input_block
-    assert "padding-bottom: 16px" in input_block
+    assert "flex-shrink: 0" in input_block
+    assert "position: relative" in input_block
