@@ -4289,4 +4289,48 @@ body {
     .marketplace-file-list {
         columns: 1;
     }
+
+    /* ── Mobile keyboard-open: pin the whole chat stack to the visual viewport.
+       ``body.keyboard-open`` is toggled by web/app.js when the soft keyboard
+       shrinks the visual viewport beyond a threshold on narrow screens. ── */
+    body.keyboard-open #nav-rail {
+        display: none;
+    }
+
+    body.keyboard-open #content,
+    body.keyboard-open #page-chat {
+        height: var(--vvh);
+        max-height: var(--vvh);
+        padding-bottom: 0;
+        overflow: hidden;
+    }
+
+    body.keyboard-open #page-chat {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+    }
+
+    body.keyboard-open .chat-page-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+    }
+
+    body.keyboard-open #chat-messages {
+        position: fixed;
+        inset: 0;
+        height: var(--vvh);
+        max-height: var(--vvh);
+        padding-top: 80px;
+        padding-bottom: var(--chat-input-reserve, 108px);
+        overflow-y: auto;
+    }
+
+    body.keyboard-open #chat-input-area {
+        position: fixed;
+        bottom: 0;
+        padding-bottom: 16px;
+    }
 }

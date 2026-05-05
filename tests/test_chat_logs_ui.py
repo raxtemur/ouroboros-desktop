@@ -1165,3 +1165,60 @@ def test_budget_pill_navigates_to_settings_costs():
     assert "openDashboardTab('costs')" in source
     budget_block = re.search(r"\.chat-budget-pill\s*\{(?P<body>[^}]+)\}", css, re.S).group("body")
     assert "cursor: pointer" in budget_block
+
+
+def test_mobile_keyboard_open_pins_composer_to_visual_viewport():
+    """Static contract test: keyboard-open JS toggle + CSS layout rules exist."""
+    js = _read("web/app.js")
+    css = _read("web/style.css")
+
+    # JS must contain keyboard detection logic
+    assert "keyboard-open" in js
+    assert "visualViewport" in js
+    assert "window.innerHeight" in js
+
+    # CSS must contain all keyboard-open selectors
+    assert "body.keyboard-open #nav-rail" in css
+    assert "body.keyboard-open #content" in css
+    assert "body.keyboard-open #page-chat" in css
+    assert "body.keyboard-open .chat-page-header" in css
+    assert "body.keyboard-open #chat-input-area" in css
+    assert "body.keyboard-open #chat-messages" in css
+
+    # Nav hidden when keyboard open
+    nav_block = re.search(
+        r"body\.keyboard-open\s+#nav-rail\s*\{(?P<body>[^}]+)\}", css, re.S
+    ).group("body")
+    assert "display: none" in nav_block
+
+    # Page-chat gets position fixed
+    page_chat_block = re.search(
+        r"body\.keyboard-open\s+#page-chat\s*\{(?P<body>[^}]+)\}",
+        css[css.index("body.keyboard-open #page-chat") + 30:],  # skip first combined rule
+        re.S,
+    ).group("body")
+    assert "position: fixed" in page_chat_block
+    assert "inset: 0" in page_chat_block
+
+    # Header stays fixed at top
+    header_block = re.search(
+        r"body\.keyboard-open\s+\.chat-page-header\s*\{(?P<body>[^}]+)\}", css, re.S
+    ).group("body")
+    assert "position: fixed" in header_block
+    assert "top: 0" in header_block
+
+    # Messages constrained to visual viewport
+    messages_block = re.search(
+        r"body\.keyboard-open\s+#chat-messages\s*\{(?P<body>[^}]+)\}", css, re.S
+    ).group("body")
+    assert "position: fixed" in messages_block
+    assert "height: var(--vvh)" in messages_block
+    assert "overflow-y: auto" in messages_block
+
+    # Composer pinned to bottom
+    input_block = re.search(
+        r"body\.keyboard-open\s+#chat-input-area\s*\{(?P<body>[^}]+)\}", css, re.S
+    ).group("body")
+    assert "position: fixed" in input_block
+    assert "bottom: 0" in input_block
+    assert "padding-bottom: 16px" in input_block
